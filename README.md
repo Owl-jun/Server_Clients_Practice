@@ -5,6 +5,10 @@
 
 ### 1회차 작업
 
+
+https://github.com/user-attachments/assets/cac6a10c-6a93-47aa-b1fc-05e908e6155c
+
+
 - [서버](./game_omok/server.py)
   - flask 로 서버를 열고 실시간 통신을 위해 flask_socketio로 통신 구현
   - 서버측에서는 @socketio.on('keyword')를 통해 메시지를 주고 받는다.

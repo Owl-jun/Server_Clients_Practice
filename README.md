@@ -3,7 +3,7 @@
 
 ## 미니 프로젝트 : 1:1 오목대전 구현
 
-### 2회차 작업 250301
+### ver 0.11 : 2회차 작업 250301
 
 
 https://github.com/user-attachments/assets/765bc276-daa5-400a-a8e4-a216f04ea45d
@@ -20,7 +20,7 @@ https://github.com/user-attachments/assets/765bc276-daa5-400a-a8e4-a216f04ea45d
 그래서 클라이언트에 전역변수로 flag를 설정하고 프로그램 실행 시 계속 준비되었냐고 서버에게 물어보고 , 서버측에 플레이어가 2명이 되지 않았다면 False를 돌려주고 , 준비되었다면 True를 돌려주어 클라이언트에서 flag를 딸깍 딸깍 바꾸어주는 로직으로 변경했다. 처음에는 move 를 호출 할때마다 변경되도록 하는 바보같은 짓을 했다, 이 를 깨닫고 수정하는 과정에서 게임이 돌아가는 시스템에 대해 좀 더 이해하게 되었다.
 
 
-### 1회차 작업 250228
+### ver 0.1 : 1회차 작업 250228
 
 https://github.com/user-attachments/assets/cac6a10c-6a93-47aa-b1fc-05e908e6155c
 

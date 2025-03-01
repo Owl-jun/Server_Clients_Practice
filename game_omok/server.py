@@ -40,7 +40,13 @@ def on_disconnect():
         del players[sid]
 # ---------------------------------------------------------
 
-
+@socketio.on('start')
+def on_start():
+    global players
+    if len(players) < 2:
+        emit('noready',{'message' : "플레이어가 준비되지 않았습니다.", 'flag' : False})
+        return
+    else: emit('noready',{'message' : "플레이어가 준비되었습니다.", 'flag' : True})
 
 @socketio.on('move')        # socketio 는 서버 측에서
 def on_move(data):
@@ -48,14 +54,18 @@ def on_move(data):
         'player': 플레이어 번호 (1 또는 2),
         'position': (x, y)  # 보드상의 좌표 (0부터 BOARD_SIZE-1)
     """
-    global board, current_turn
+    global board, current_turn , players
     sid = request.sid
     player = data.get('player')
     pos = data.get('position')
     if not pos or player is None:
         emit('error', {'message': "잘못된 데이터"})
         return
-
+    
+    if len(players) < 2:
+        emit('noready',{'message' : "플레이어가 준비되지 않았습니다.", 'flag' : False})
+        return
+    
     x, y = pos
     # 플레이어 번호와 현재 턴 확인
     if players.get(sid) != current_turn:

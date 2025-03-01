@@ -9,6 +9,7 @@ sio = socketio.Client()
 board = []
 current_turn = None
 player_number = None
+flag = False
 
 # 오목판 및 창 설정
 READY = False
@@ -51,8 +52,13 @@ def on_update(data):
     current_turn = data.get('current_turn')
     print("서버로부터 업데이트를 받았습니다.")
 
-
-
+@sio.on('noready')
+def on_noready(data):
+    global flag
+    message = data.get('message')
+    flag = data.get('flag')
+    print(message)
+    
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
@@ -67,9 +73,12 @@ def main():
     if not board:
         board = [[0 for _ in range(BOARD_SIZE+1)] for _ in range(BOARD_SIZE+1)]
 
+    # 텍스트 설정
+    textFont = pygame.font.SysFont("malgun gothic",36)
+    text_surface = textFont.render('상대 플레이어를 기다리는 중입니다.', True, (0,0,0),'white')
+
     running = True
     while running:
-        sio.emit('start', {'player':player_number})
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -83,31 +92,38 @@ def main():
                     # 현재 플레이어 번호와 좌표를 서버로 전송
                     sio.emit('move', {'player': player_number, 'position': (x, y)})
 
-        # 화면 그리기
-        screen.fill((255, 255, 255))  # 배경 흰색
-        # 격자선 그리기
-        for i in range(BOARD_SIZE+1):
-            # 수직선
-            start_pos = (MARGIN + i * CELL_SIZE, MARGIN)
-            end_pos = (MARGIN + i * CELL_SIZE, WINDOW_SIZE - MARGIN)
-            pygame.draw.line(screen, (0, 0, 0), start_pos, end_pos, 1)
-            # 수평선
-            start_pos = (MARGIN, MARGIN + i * CELL_SIZE)
-            end_pos = (WINDOW_SIZE - MARGIN, MARGIN + i * CELL_SIZE)
-            pygame.draw.line(screen, (0, 0, 0), start_pos, end_pos, 1)
+        global flag
+        if not flag:
+            screen.blit(text_surface,(35,150))
+            sio.emit('start')
 
-        # 오목판에 돌 그리기
-        for row in range(BOARD_SIZE):
-            for col in range(BOARD_SIZE):
-                stone = board[row][col]
-                if stone == 1 or stone == 2:
-                    # 플레이어 1: 검은 돌, 플레이어 2: 흰 돌
-                    color = (0, 0, 0) if stone == 1 else (255, 255, 255)
-                    center = (MARGIN + col * CELL_SIZE, MARGIN + row * CELL_SIZE)
-                    pygame.draw.circle(screen, color, center, CELL_SIZE // 2 - 2)
-                    # 흰 돌일 경우 테두리 그리기
-                    if stone == 2:
-                        pygame.draw.circle(screen, (0, 0, 0), center, CELL_SIZE // 2 - 2, 1)
+        if flag:
+            # 화면 그리기
+            screen.fill((255, 255, 255))  # 배경 흰색
+            # 격자선 그리기
+            for i in range(BOARD_SIZE+1):
+                # 수직선
+                start_pos = (MARGIN + i * CELL_SIZE, MARGIN)
+                end_pos = (MARGIN + i * CELL_SIZE, WINDOW_SIZE - MARGIN)
+                pygame.draw.line(screen, (0, 0, 0), start_pos, end_pos, 1)
+                # 수평선
+                start_pos = (MARGIN, MARGIN + i * CELL_SIZE)
+                end_pos = (WINDOW_SIZE - MARGIN, MARGIN + i * CELL_SIZE)
+                pygame.draw.line(screen, (0, 0, 0), start_pos, end_pos, 1)
+
+            # 오목판에 돌 그리기
+            for row in range(BOARD_SIZE):
+                for col in range(BOARD_SIZE):
+                    stone = board[row][col]
+                    if stone == 1 or stone == 2:
+                        # 플레이어 1: 검은 돌, 플레이어 2: 흰 돌
+                        color = (0, 0, 0) if stone == 1 else (255, 255, 255)
+                        center = (MARGIN + col * CELL_SIZE, MARGIN + row * CELL_SIZE)
+                        pygame.draw.circle(screen, color, center, CELL_SIZE // 2 - 2)
+                        # 흰 돌일 경우 테두리 그리기
+                        if stone == 2:
+                            pygame.draw.circle(screen, (0, 0, 0), center, CELL_SIZE // 2 - 2, 1)
+        
 
         pygame.display.flip()
         clock.tick(30)

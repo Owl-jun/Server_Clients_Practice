@@ -79,40 +79,7 @@ def on_restart():
             # 클라이언트에게 게임이 리셋되었음을 알림
             emit('reset_game', {'board': board, 'current_turn': current_turn, 'is_end': isEnd}, broadcast=True)
 
-
-@socketio.on('move')        # socketio 는 서버 측에서
-def on_move(data):
-    """ data 정보
-        'player': 플레이어 번호 (1 또는 2),
-        'position': (x, y)  # 보드상의 좌표 (0부터 BOARD_SIZE-1)
-    """
-    global board, current_turn , players
-    sid = request.sid
-    player = data.get('player')
-    pos = data.get('position')
-    if not pos or player is None:
-        emit('error', {'message': "잘못된 데이터"})
-        return
-    
-    if len(players) < 2:
-        emit('noready',{'message' : "플레이어가 준비되지 않았습니다.", 'flag' : False})
-        return
-    
-    x, y = pos
-    # 플레이어 번호와 현재 턴 확인
-    if players.get(sid) != current_turn:
-        emit('error', {'message': "지금은 상대 턴입니다."})
-        return
-
-    # 이미 돌이 놓여있는지 확인
-    if board[y][x] != 0:
-        emit('error', {'message': "해당 위치는 이미 사용 중입니다."})
-        return
-
-    # 오목판에 돌을 놓음
-    board[y][x] = current_turn
-    print(f"플레이어 {current_turn}의 돌이 {(x, y)}에 놓였습니다.")
-
+def isWin(x,y):
     # --------------------------------------
     # 승 패 로직
     global isEnd
@@ -166,7 +133,41 @@ def on_move(data):
         isEnd = True
         print(f" 플레이어 {current_turn} 승리! ")
     # --------------------------------------
+    
+@socketio.on('move')        # socketio 는 서버 측에서
+def on_move(data):
+    """ data 정보
+        'player': 플레이어 번호 (1 또는 2),
+        'position': (x, y)  # 보드상의 좌표 (0부터 BOARD_SIZE-1)
+    """
+    global board, current_turn , players
+    sid = request.sid
+    player = data.get('player')
+    pos = data.get('position')
+    if not pos or player is None:
+        emit('error', {'message': "잘못된 데이터"})
+        return
+    
+    if len(players) < 2:
+        emit('noready',{'message' : "플레이어가 준비되지 않았습니다.", 'flag' : False})
+        return
+    
+    x, y = pos
+    # 플레이어 번호와 현재 턴 확인
+    if players.get(sid) != current_turn:
+        emit('error', {'message': "지금은 상대 턴입니다."})
+        return
 
+    # 이미 돌이 놓여있는지 확인
+    if board[y][x] != 0:
+        emit('error', {'message': "해당 위치는 이미 사용 중입니다."})
+        return
+
+    # 오목판에 돌을 놓음
+    board[y][x] = current_turn
+    print(f"플레이어 {current_turn}의 돌이 {(x, y)}에 놓였습니다.")
+
+    isWin(x,y)
 
     # 턴 교체: 1->2, 2->1
     if isEnd :

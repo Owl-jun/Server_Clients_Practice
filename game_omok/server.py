@@ -15,7 +15,7 @@ dp_d1 = [[0] * (BOARD_SIZE+1) for _ in range(BOARD_SIZE+1)]
 dp_d2 = [[0] * (BOARD_SIZE+1) for _ in range(BOARD_SIZE+1)]
 current_turn = 1  # 현재 턴: 1 또는 2
 isEnd = False
-restart_votes = [False, False]  # 두 명이 클릭해야 게임이 재시작됨
+restart_votes = [False, False]
 
 # 각 클라이언트(소켓)에게 플레이어 번호를 할당 (최대 2명)
 players = {}
@@ -67,8 +67,9 @@ def on_restart():
         # 두 명이 모두 클릭하면 게임 초기화
         if restart_votes[0] and restart_votes[1]:
             print("게임을 다시 시작합니다!")
+            restart_votes[0] = False
+            restart_votes[1] = False
             isEnd = False
-            restart_votes = 0
             board = [[0 for _ in range(BOARD_SIZE+1)] for _ in range(BOARD_SIZE+1)]
             dp_h = [[0] * (BOARD_SIZE+1) for _ in range(BOARD_SIZE+1)]
             dp_v = [[0] * (BOARD_SIZE+1) for _ in range(BOARD_SIZE+1)]
@@ -78,105 +79,101 @@ def on_restart():
 
             # 클라이언트에게 게임이 리셋되었음을 알림
             emit('reset_game', {'board': board, 'current_turn': current_turn, 'is_end': isEnd}, broadcast=True)
-
-def isWin(x,y):
-    # --------------------------------------
-    # 승 패 로직
-    global isEnd
-    # 1. 가로
-    left_x = x  # 왼쪽 끝
-    while left_x > 0 and board[y][left_x-1] == current_turn:
-        left_x -= 1
-    right_x = x  # 오른쪽
-    while right_x < BOARD_SIZE - 1 and board[y][right_x+1] == current_turn:
-        right_x += 1
-    dp_h[x][y] = right_x - left_x + 1  # 가로
-
-    # 2. 세로
-    top_y = y  # 위쪽 끝
-    while top_y > 0 and board[top_y-1][x] == current_turn:
-        top_y -= 1
-    bottom_y = y  # 아래쪽
-    while bottom_y < BOARD_SIZE - 1 and board[bottom_y+1][x] == current_turn:
-        bottom_y += 1
-    dp_v[x][y] = bottom_y - top_y + 1  # 세로
-
-    # 3. 대각선 ↘ (↖)
-    left_x, top_y = x, y  # ↖
-    while left_x > 0 and top_y > 0 and board[top_y-1][left_x-1] == current_turn:
-        left_x -= 1
-        top_y -= 1
-    right_x, bottom_y = x, y  # ↘
-    while right_x < BOARD_SIZE - 1 and bottom_y < BOARD_SIZE - 1 and board[bottom_y+1][right_x+1] == current_turn:
-        right_x += 1
-        bottom_y += 1
-    dp_d1[x][y] = right_x - left_x + 1  #↘
-
-    # 4. 대각선 ↙ (↗)
-    left_x, bottom_y = x, y  # ↙
-    while left_x > 0 and bottom_y < BOARD_SIZE - 1 and board[bottom_y+1][left_x-1] == current_turn:
-        left_x -= 1
-        bottom_y += 1
-    right_x, top_y = x, y  # ↗
-    while right_x < BOARD_SIZE - 1 and top_y > 0 and board[top_y-1][right_x+1] == current_turn:
-        right_x += 1
-        top_y -= 1
-    dp_d2[x][y] = right_x - left_x + 1  #↙
     
-    # 디버깅용..
-    print(f"현재 위치: ({x}, {y}), 플레이어 {current_turn}")
-    print(f"가로 : {dp_h[x][y]}, 세로 : {dp_v[x][y]}")
-    print(f"대각선 ↘: {dp_d1[x][y]}, 대각선 ↙: {dp_d2[x][y]}")
-
-    # 승리 체크
-    if dp_h[x][y] >= 5 or dp_v[x][y] >= 5 or dp_d1[x][y] >= 5 or dp_d2[x][y] >= 5:
-        isEnd = True
-        print(f" 플레이어 {current_turn} 승리! ")
-    # --------------------------------------
-    
-@socketio.on('move')        # socketio 는 서버 측에서
+@socketio.on('move')
 def on_move(data):
-    """ data 정보
-        'player': 플레이어 번호 (1 또는 2),
-        'position': (x, y)  # 보드상의 좌표 (0부터 BOARD_SIZE-1)
-    """
-    global board, current_turn , players
+    global board, current_turn, players, isEnd, dp_h, dp_v, dp_d1, dp_d2
+
     sid = request.sid
     player = data.get('player')
     pos = data.get('position')
+
     if not pos or player is None:
         emit('error', {'message': "잘못된 데이터"})
         return
     
     if len(players) < 2:
-        emit('noready',{'message' : "플레이어가 준비되지 않았습니다.", 'flag' : False})
+        emit('noready', {'message': "플레이어가 준비되지 않았습니다.", 'flag': False})
         return
-    
+
     x, y = pos
-    # 플레이어 번호와 현재 턴 확인
+
     if players.get(sid) != current_turn:
         emit('error', {'message': "지금은 상대 턴입니다."})
         return
 
-    # 이미 돌이 놓여있는지 확인
     if board[y][x] != 0:
         emit('error', {'message': "해당 위치는 이미 사용 중입니다."})
         return
 
-    # 오목판에 돌을 놓음
+    # ------------- 백업 (돌을 놓기 전 상태 저장) -------------
+    prev_dp_h, prev_dp_v, prev_dp_d1, prev_dp_d2 = dp_h[x][y], dp_v[x][y], dp_d1[x][y], dp_d2[x][y]
+
+    # ------------- 승 패 로직 (DP 업데이트) -------------
+    left_x = x
+    while left_x > 0 and board[y][left_x-1] == current_turn:
+        left_x -= 1
+    right_x = x
+    while right_x < BOARD_SIZE - 1 and board[y][right_x+1] == current_turn:
+        right_x += 1
+    dp_h[x][y] = right_x - left_x + 1  # 가로
+
+    top_y = y
+    while top_y > 0 and board[top_y-1][x] == current_turn:
+        top_y -= 1
+    bottom_y = y
+    while bottom_y < BOARD_SIZE - 1 and board[bottom_y+1][x] == current_turn:
+        bottom_y += 1
+    dp_v[x][y] = bottom_y - top_y + 1  # 세로
+
+    left_x, top_y = x, y
+    while left_x > 0 and top_y > 0 and board[top_y-1][left_x-1] == current_turn:
+        left_x -= 1
+        top_y -= 1
+    right_x, bottom_y = x, y
+    while right_x < BOARD_SIZE - 1 and bottom_y < BOARD_SIZE - 1 and board[bottom_y+1][right_x+1] == current_turn:
+        right_x += 1
+        bottom_y += 1
+    dp_d1[x][y] = right_x - left_x + 1  # ↘
+
+    left_x, bottom_y = x, y
+    while left_x > 0 and bottom_y < BOARD_SIZE - 1 and board[bottom_y+1][left_x-1] == current_turn:
+        left_x -= 1
+        bottom_y += 1
+    right_x, top_y = x, y
+    while right_x < BOARD_SIZE - 1 and top_y > 0 and board[top_y-1][right_x+1] == current_turn:
+        right_x += 1
+        top_y -= 1
+    dp_d2[x][y] = right_x - left_x + 1  # ↙
+
+    # ------------- 33 체크 (금수) -------------
+    ttcount = 0
+    if dp_h[x][y] == 3: ttcount += 1
+    if dp_v[x][y] == 3: ttcount += 1
+    if dp_d1[x][y] == 3: ttcount += 1
+    if dp_d2[x][y] == 3: ttcount += 1
+    
+
+    if ttcount >= 2:  # 삼삼(33) 체크
+        # 원래 값으로 복원
+        dp_h[x][y], dp_v[x][y], dp_d1[x][y], dp_d2[x][y] = prev_dp_h, prev_dp_v, prev_dp_d1, prev_dp_d2
+        emit('error', {'message': '삼삼(33) 금수로 인해 착수할 수 없습니다!'})
+        return
+    else : emit('error', {'message' : '화면지우기~'})
+
+    # ------------- 돌을 놓기 & 승리 체크 -------------
     board[y][x] = current_turn
-    print(f"플레이어 {current_turn}의 돌이 {(x, y)}에 놓였습니다.")
 
-    isWin(x,y)
+    if dp_h[x][y] >= 5 or dp_v[x][y] >= 5 or dp_d1[x][y] >= 5 or dp_d2[x][y] >= 5:
+        isEnd = True
+        print(f"플레이어 {current_turn} 승리!")
 
-    # 턴 교체: 1->2, 2->1
-    if isEnd :
-        pass
-    else:
+    # 턴 교체
+    if not isEnd:
         current_turn = 2 if current_turn == 1 else 1
 
-    # 모든 클라이언트에 업데이트된 오목판과 현재 턴 정보를 브로드캐스트
-    emit('update', {'board': board, 'current_turn': current_turn, 'is_end' : isEnd}, broadcast=True)
+    emit('update', {'board': board, 'current_turn': current_turn, 'is_end': isEnd}, broadcast=True)
+
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True) # port = 번호 로 원하는 포트번호로 할당가능!
+    socketio.run(app,host='0.0.0.0', debug=True) # port = 번호 로 원하는 포트번호로 할당가능!

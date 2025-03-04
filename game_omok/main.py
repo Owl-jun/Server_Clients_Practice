@@ -11,6 +11,7 @@ current_turn = 1
 player_number = None
 flag = False
 isEnd = False
+errMem = None
 # 오목판 및 창 설정
 READY = False
 BOARD_SIZE = 15
@@ -33,7 +34,9 @@ def disconnect():
 # 에러 디버깅용
 @sio.on('error')
 def on_error(data):
-    print(data.get('message'))
+    global errMem
+    errMem = data.get('message')
+    print(errMem)
 
 @sio.on('reset_game')
 def on_reset_game(data):
@@ -74,7 +77,7 @@ def main():
     clock = pygame.time.Clock()
 
     # 서버에 연결 (포트 5000번은 디폴트값임)
-    sio.connect('http://localhost:5000', wait_timeout = 10) # 연결오류가 계속 났는데 wait_timeout 이 나를 살렸다..
+    sio.connect('http://210.119.12.82:5000', wait_timeout = 10) # 연결오류가 계속 났는데 wait_timeout 이 나를 살렸다..
 
     global flag # 게임 준비완료 flag
     # 초기 오목판 설정 (서버에서 업데이트가 오기 전까지 사용)
@@ -89,6 +92,7 @@ def main():
     noturn_surface = textFont.render('상대방의 턴 입니다.', True, (0,0,0))
     win_surface = textFont.render('승리! 다시하려면 클릭',True,(0,0,0))
     lose_surface = textFont.render('패배! 다시하려면 클릭',True,(0,0,0))
+    nott_surface = textFont.render('33은 좀..',True,(0,0,0))
     running = True
     while running:
         for event in pygame.event.get():
@@ -131,7 +135,7 @@ def main():
                 start_pos = (MARGIN, MARGIN + i * CELL_SIZE)
                 end_pos = (WINDOW_SIZE - MARGIN, MARGIN + i * CELL_SIZE)
                 pygame.draw.line(screen, (0, 0, 0), start_pos, end_pos, 1)
-
+            
 
             # 오목판에 돌 그리기
             for row in range(BOARD_SIZE):
@@ -145,6 +149,9 @@ def main():
                         # 흰 돌일 경우 테두리 그리기
                         if stone == 2:
                             pygame.draw.circle(screen, (0, 0, 0), center, CELL_SIZE // 2 - 2, 1)
+
+            if errMem == '삼삼(33) 금수로 인해 착수할 수 없습니다!':
+                screen.blit(nott_surface,((WINDOW_SIZE//2)-150,(WINDOW_SIZE//2)))
 
             # 턴 알려주는 UI
             if player_number == current_turn:
